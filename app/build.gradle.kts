@@ -12,14 +12,24 @@ android {
         applicationId = "de.limad.music"
         minSdk = 25
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.1.1"
+    }
+
+    // Fixed key so every CI build can update the installed app (debug keys differ per runner).
+    signingConfigs {
+        create("limad") {
+            storeFile = file("limad-release.jks")
+            storePassword = "limadtv"
+            keyAlias = "limad"
+            keyPassword = "limadtv"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("limad")
         }
     }
 
