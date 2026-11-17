@@ -42,6 +42,7 @@ class PlayerActivity : ComponentActivity() {
     private lateinit var player: ExoPlayer
     private lateinit var view: PlayerView
     private lateinit var cover: ImageView
+    private lateinit var backdrop: ImageView
     private lateinit var info: TextView
     private val items = mutableListOf<Track>()
     private var loadingRelated = false
@@ -99,10 +100,28 @@ class PlayerActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#0B0B10")) }
 
-        cover = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
-        root.addView(cover, FrameLayout.LayoutParams(-1, -1).apply { setMargins(dp(80), dp(90), dp(80), dp(150)) })
+        // Soft blurred cover as backdrop (tiny bitmap scaled up), dimmed for contrast.
+        backdrop = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+        root.addView(backdrop, FrameLayout.LayoutParams(-1, -1))
+        root.addView(View(this).apply { setBackgroundColor(Color.parseColor("#B30B0B10")) }, FrameLayout.LayoutParams(-1, -1))
+
+        cover = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            clipToOutline = true
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(v: View, o: android.graphics.Outline) {
+                    val d = drawable ?: return o.setRoundRect(0, 0, v.width, v.height, dp(18).toFloat())
+                    val scale = minOf(v.width.toFloat() / d.intrinsicWidth, v.height.toFloat() / d.intrinsicHeight)
+                    val w = (d.intrinsicWidth * scale).toInt(); val h = (d.intrinsicHeight * scale).toInt()
+                    val l = (v.width - w) / 2; val t = (v.height - h) / 2
+                    o.setRoundRect(l, t, l + w, t + h, dp(18).toFloat())
+                }
+            }
+            elevation = dp(24).toFloat()
+        }
+        root.addView(cover, FrameLayout.LayoutParams(-1, -1).apply { setMargins(dp(80), dp(110), dp(80), dp(170)) })
 
         view = PlayerView(this).apply {
             setShutterBackgroundColor(Color.TRANSPARENT)
@@ -127,6 +146,11 @@ class PlayerActivity : ComponentActivity() {
         root.addView(info, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
         setContentView(root)
+        view.findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)?.apply {
+            setPlayedColor(Color.parseColor("#E5193A"))
+            setScrubberColor(Color.parseColor("#FF2D4B"))
+            setBufferedColor(Color.parseColor("#55FFFFFF"))
+        }
         view.requestFocus()
     }
 
@@ -156,9 +180,10 @@ class PlayerActivity : ComponentActivity() {
         prefs.addHistory(t)
         info.text = if (t.artist.isNotEmpty()) "${t.title}\n${t.artist}" else t.title
 
+        backdrop.load(t.thumb) { size(32, 18) }
         if (isAudioOnly(t)) {
             cover.visibility = View.VISIBLE
-            cover.load(t.thumb)
+            cover.load(t.thumb) { listener(onSuccess = { _, _ -> cover.invalidateOutline() }) }
         } else {
             cover.visibility = View.GONE
         }
